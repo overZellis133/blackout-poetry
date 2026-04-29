@@ -535,7 +535,7 @@ function App() {
           title: 'Blackout Poetry',
           author: 'via blackout.poetry',
           source_type: 'blackout-poetry',
-          category: 'supplementals',
+          category: 'books',
           note,
         }),
       });

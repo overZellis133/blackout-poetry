@@ -28,9 +28,11 @@ module.exports = async function handler(req, res) {
   } = readBody(req);
 
   if (typeof token !== 'string' || token.trim().length === 0) {
+    console.warn('[readwise] missing token');
     return res.status(400).json({ error: 'Readwise token is required.' });
   }
   if (typeof text !== 'string' || text.trim().length === 0) {
+    console.warn('[readwise] missing text');
     return res.status(400).json({ error: 'Highlight text is required.' });
   }
 
@@ -39,7 +41,7 @@ module.exports = async function handler(req, res) {
     title: title || 'Blackout Poetry',
     author: author || 'via blackout.poetry',
     source_type: sourceType || 'blackout-poetry',
-    category: category || 'supplementals',
+    category: category || 'books',
   };
   if (note) highlight.note = note;
   if (highlightUrl) highlight.highlight_url = highlightUrl;
@@ -55,8 +57,15 @@ module.exports = async function handler(req, res) {
     });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
+      console.warn(
+        '[readwise] upstream',
+        upstream.status,
+        upstream.statusText,
+        JSON.stringify(data),
+      );
       const message =
         (data && (data.detail || data.error)) ||
+        (typeof data === 'object' ? JSON.stringify(data) : '') ||
         `${upstream.status} ${upstream.statusText}`;
       return res.status(upstream.status).json({ error: message, data });
     }
