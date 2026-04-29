@@ -189,6 +189,9 @@ function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [aiPoem, setAiPoem] = useState(null); // {title, lines: [[token, ...], ...]}
+  const [sourceOpen, setSourceOpen] = useState(() =>
+    typeof window === 'undefined' ? true : window.innerWidth > 820,
+  );
   const canvasRef = useRef(null);
 
   const lines = useMemo(() => tokenize(text), [text]);
@@ -654,10 +657,24 @@ function App() {
         </div>
       )}
 
-      <main className={`workspace view-${view}`}>
-        <section className="pane source-pane">
-          <label className="pane-label">Source</label>
+      <main
+        className={`workspace view-${view} ${
+          sourceOpen ? 'source-open' : 'source-closed'
+        }`}
+      >
+        <section className={`pane source-pane ${sourceOpen ? 'is-open' : 'is-closed'}`}>
+          <button
+            type="button"
+            className="pane-label source-toggle"
+            onClick={() => setSourceOpen((v) => !v)}
+            aria-expanded={sourceOpen}
+            aria-controls="source-input"
+          >
+            <span>Source</span>
+            <span className="source-chevron" aria-hidden="true">▾</span>
+          </button>
           <textarea
+            id="source-input"
             className="source-input"
             value={text}
             onChange={(e) => {
