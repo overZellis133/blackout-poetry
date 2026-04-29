@@ -192,6 +192,19 @@ function App() {
   const [sourceOpen, setSourceOpen] = useState(() =>
     typeof window === 'undefined' ? true : window.innerWidth > 820,
   );
+  const [rwOpen, setRwOpen] = useState(false);
+  const [rwToken, setRwToken] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      return localStorage.getItem('readwise_token') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [rwTitle, setRwTitle] = useState('');
+  const [rwSource, setRwSource] = useState(SAMPLES[0].title);
+  const [rwLoading, setRwLoading] = useState(false);
+  const [rwStatus, setRwStatus] = useState(null); // { kind: 'ok' | 'err', message }
   const canvasRef = useRef(null);
 
   const lines = useMemo(() => tokenize(text), [text]);
@@ -491,6 +504,54 @@ function App() {
     setBlacked({});
     setAiPoem(null);
     setView('redact');
+    setRwSource(SAMPLES[idx].title);
+  };
+
+  const saveToReadwise = async () => {
+    setRwStatus(null);
+    if (!rwToken.trim()) {
+      setRwStatus({ kind: 'err', message: 'Paste your Readwise access token first.' });
+      return;
+    }
+    const poemText = getPoemText();
+    if (!poemText) {
+      setRwStatus({ kind: 'err', message: 'No poem yet — keep some words first.' });
+      return;
+    }
+    const poemTitle = rwTitle.trim() || aiPoem?.title || 'Blackout Poem';
+    const source = rwSource.trim();
+    const note = source
+      ? `.h1 ${poemTitle}\nFound in: ${source}`
+      : `.h1 ${poemTitle}`;
+
+    setRwLoading(true);
+    try {
+      const res = await fetch('/api/readwise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: rwToken.trim(),
+          text: poemText,
+          title: 'Blackout Poetry',
+          author: 'via blackout.poetry',
+          source_type: 'blackout-poetry',
+          category: 'supplementals',
+          note,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `${res.status} ${res.statusText}`);
+      }
+      try {
+        localStorage.setItem('readwise_token', rwToken.trim());
+      } catch {}
+      setRwStatus({ kind: 'ok', message: `Saved "${poemTitle}" to Readwise.` });
+    } catch (e) {
+      setRwStatus({ kind: 'err', message: e?.message || 'Save failed' });
+    } finally {
+      setRwLoading(false);
+    }
   };
 
   const handleViewChange = (next) => {
@@ -598,6 +659,13 @@ function App() {
           >
             Share
           </button>
+          <button
+            className={`btn ${rwOpen ? 'active' : ''}`}
+            onClick={() => setRwOpen((v) => !v)}
+            title="Save poem to your Readwise account"
+          >
+            Readwise
+          </button>
           <span className="toolbar-sep" aria-hidden="true" />
           <div className="view-toggle" role="tablist">
             <button
@@ -619,6 +687,69 @@ function App() {
           </div>
         </div>
       </header>
+
+      {rwOpen && (
+        <div className="ai-panel rw-panel">
+          <label className="ai-label">Save current poem to Readwise</label>
+          <div className="rw-row">
+            <input
+              className="ai-prompt rw-input"
+              type="password"
+              value={rwToken}
+              onChange={(e) => setRwToken(e.target.value)}
+              placeholder="Readwise access token (saved locally)"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+          <div className="rw-row rw-row-split">
+            <input
+              className="ai-prompt rw-input"
+              type="text"
+              value={rwTitle}
+              onChange={(e) => setRwTitle(e.target.value)}
+              placeholder={aiPoem?.title || 'Poem title (optional)'}
+              spellCheck={false}
+            />
+            <input
+              className="ai-prompt rw-input"
+              type="text"
+              value={rwSource}
+              onChange={(e) => setRwSource(e.target.value)}
+              placeholder="Source (e.g., Frankenstein — Mary Shelley)"
+              spellCheck={false}
+            />
+          </div>
+          <div className="ai-actions">
+            <a
+              className="rw-help"
+              href="https://readwise.io/access_token"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Get your token →
+            </a>
+            <span className="ai-spacer" />
+            {rwStatus && (
+              <span
+                className={
+                  rwStatus.kind === 'ok' ? 'rw-success' : 'ai-error'
+                }
+              >
+                {rwStatus.message}
+              </span>
+            )}
+            <button
+              className="btn btn-accent"
+              onClick={saveToReadwise}
+              disabled={rwLoading || !rwToken.trim() || keptCount === 0}
+              type="button"
+            >
+              {rwLoading ? 'Saving…' : 'Save to Readwise'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {aiOpen && (
         <div className="ai-panel">
